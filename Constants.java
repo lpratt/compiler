@@ -2,6 +2,17 @@ import java.util.HashMap;
 
 public interface Constants {
 	
+	// TREENODE CONSTANTS
+	static final int PROGRAM = 1;
+	static final int COMPOUND_STATEMENT = 10;
+	static final int EXPRESSION_STATEMENT = 14;
+	static final int IF_STATEMENT = 15;
+	static final int WHILE_STATEMENT = 16;
+	static final int RETURN_STATEMENT = 17;
+	static final int WRITE_STATEMENT = 18;
+	static final int EXPRESSION = 19;
+	
+	
 	// TOKEN CONSTANTS
 	static final int T_ID = 1;	// identifiers - start with a letter and consist of letters, digits, and underscores
 	static final int T_NUM = 2;	// numbers - non-negative integers
