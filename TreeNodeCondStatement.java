@@ -7,13 +7,12 @@ public class TreeNodeCondStatement extends TreeNodeStatement {
 	/*
 	 * t = Token
 	 * nt = node_type
-	 * tnn = tree node next
 	 * tne = tree node expression
 	 * tns = tree node statement
 	 * tnes = tree node else statement
 	 */
-	public TreeNodeCondStatement(Token t, int nt, TreeNode tnn, TreeNode tne, TreeNode tns, TreeNode tnes) {
-		super(t, nt, tnn, tne);
+	public TreeNodeCondStatement(Token t, int nt, TreeNode tne, TreeNode tns, TreeNode tnes) {
+		super(t, nt, tne);
 		statement = tns;
 		else_statement = tnes;
 	}
