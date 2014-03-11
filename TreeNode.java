@@ -14,9 +14,4 @@ public class TreeNode implements Constants {
 		next_nodes = new ArrayList<TreeNode>();
 	}
 	
-//	public void printNode() {
-//		System.out.print("Node type "+node_type+ " on line "+line+ " goes to: ");
-//		next.printNode();
-//	}
-	
 }

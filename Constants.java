@@ -11,6 +11,9 @@ public interface Constants {
 	static final int RETURN_STATEMENT = 17;
 	static final int WRITE_STATEMENT = 18;
 	static final int EXPRESSION = 19;
+	static final int VAR = 20;
+	static final int EXPRESSION_INT = 100;
+	static final int EXPRESSION_VAR = 101;
 	
 	
 	// TOKEN CONSTANTS
