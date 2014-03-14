@@ -1,14 +1,19 @@
+// TODO: Figure out which each method can return
 
 public class Parser implements Constants {
 
 	Scan my_scanner;
 	Token current_token;
-	boolean debug = false;
+	Token pushback_token;
+	boolean debug = true;
+	boolean adv; 	// boolean to turn on/off some getNextToken() calls
 
 	/*
 	 * A constructor
 	 */
 	public Parser(String filename){
+		adv = true;
+		pushback_token = null;
 		try {
 			my_scanner = new Scan(filename);
 		} catch (Exception e) {
@@ -20,8 +25,13 @@ public class Parser implements Constants {
 	 */
 	public void getNextToken() {
 		try {
-			my_scanner.getNextToken();
-			current_token = my_scanner.getToken();
+			if (pushback_token == null) {
+				my_scanner.getNextToken();
+				current_token = my_scanner.getToken();
+			} else {
+				current_token = pushback_token;
+				pushback_token = null;
+			}
 		} catch (ScannerException e) {
 			System.out.println("ERROR GETTING NEXT TOKEN.");
 			System.exit(1);
@@ -34,12 +44,54 @@ public class Parser implements Constants {
 	 * If they're different, throws a ParserException with the error message.
 	 */
 	public boolean expect(Token t, int k, String message) throws ParserException {
-		if (t.kind == k) {
+		if (t.kind == k)
 			return true;
-		} else {
-			ParserException pe = new ParserException(message);
-			throw pe;
+		ParserException pe = new ParserException(message+" at line "+t.line);
+		throw pe;
+	}
+
+	/*
+	 * A function that takes in a token, a list of expected string, and an error message
+	 * Returns a boolean if the token value and any of the expected strings are the same
+	 * If they're different, throws a ParserException with the error message.
+	 */
+	public boolean expect(Token t, int[] k, String message) throws ParserException {
+		for (int i = 0; i < k.length; i++) {
+			if (t.kind == k[i])
+				return true;
 		}
+		ParserException pe = new ParserException(message+" at line "+t.line);
+		throw pe;
+	}
+
+	/*
+	 * Checks to see if a current token kind is a relop
+	 */
+	public boolean isRelop(int k) {
+		if (k == T_LEQ || k == T_LESS || k == T_EQEQ || k == T_NEQ || k == T_GREATER || k == T_GEQ) {
+			return true;
+		}
+		return false;
+	}
+
+	/*
+	 * Checks to see if a current token kind is an addop
+	 */
+	public boolean isAddop(int k) {
+		if (k == T_PLUS || k == T_MINUS) {
+			return true;
+		}
+		return false;
+	}
+	
+	/*
+	 * Checks to see if a current token kind is an mulop
+	 */
+	public boolean isMulop(int k) {
+		if (k == T_STAR || k == T_SLASH || k == T_PERCENT) {
+			return true;
+		}
+		return false;
 	}
 
 	/*
@@ -47,15 +99,25 @@ public class Parser implements Constants {
 	 * Program -> Statement
 	 */
 	public TreeNode parse() throws ParserException {
+		if (debug)
+			System.out.println("Enter parse()");
+
 		getNextToken();	// gets the first token of the program
 		if (debug)
 			System.out.println("Parse: "+current_token.value);
+
 		TreeNode t = new TreeNode(current_token, PROGRAM);
 		if (current_token.kind == T_EOF) {
+
+			if (debug)
+				System.out.println("Leaving parse()");	
 			return t;
 		} else {
 			TreeNode s = parseStatement(); // TODO: change to Declaration_List
 			t.next_nodes.add(s);
+
+			if (debug)
+				System.out.println("Leaving parse()");
 			return t;
 		}
 	}
@@ -69,17 +131,19 @@ public class Parser implements Constants {
 	 * 				Write_Statement
 	 */
 	public TreeNode parseStatement() throws ParserException {
+		if (debug)
+			System.out.println("Enter parseStatement()");
+
 		TreeNode t = null;
 		if (current_token.kind == T_LBRACE) {	// Compound_Statement
 			getNextToken(); 	// advance token to read in start of exp_stmt
 			if (debug) 
 				System.out.println("ParseStatement{: "+current_token.value);
 			t = parseCompoundStatement();
-			if (current_token.kind == T_RBRACE) {
+			if (expect(current_token, T_RBRACE, "Not a valid CompoundStatement: Missing '}'")) {
+				if (debug)
+					System.out.println("Leaving parseStatement()");
 				return t;
-			} else {
-				ParserException pe = new ParserException("Not a valid CompoundStatement: Missing '}'");
-				throw pe;
 			}
 		} else if (current_token.kind == T_WHILE) { 	// While_Statement
 			t = parseWhileStatement();
@@ -92,21 +156,33 @@ public class Parser implements Constants {
 		} else {	// Expression_Statement
 			t = parseExpressionStatement();
 		}
+
+		if (debug)
+			System.out.println("Leaving parseStatement()");
 		return t;
 	}
 
 	/*
-	 * Compound_Statement -> {Expression_Statment(s)}
+	 * Compound_Statement -> {Statment(s)}
+	 * TODO: expand into {LOCAL_DECS STATEMENT_LIST}
 	 */
 	public TreeNode parseCompoundStatement() throws ParserException {
+		if (debug)
+			System.out.println("Enter parseCompoundStatement()");
+
 		TreeNodeStatement t = new TreeNodeStatement(current_token, COMPOUND_STATEMENT, null);
 		while (current_token.kind != T_RBRACE && current_token.kind != T_EOF) {
-			TreeNode e = parseExpressionStatement();
+			TreeNode e = parseStatement();
 			t.next_nodes.add(e);
-			getNextToken();
+			if (adv)
+				getNextToken();
+			adv = true;
 			if (debug)
 				System.out.println("Compound Statement: "+current_token.value);
 		}
+
+		if (debug)
+			System.out.println("Leaving parseCompoundStatement()");
 		return t;
 	}
 
@@ -114,6 +190,9 @@ public class Parser implements Constants {
 	 * If_Statement -> IF (Expression) Statement | IF (Expression) Statement ELSE Statement
 	 */
 	public TreeNode parseIfStatement() throws ParserException {
+		if (debug)
+			System.out.println("Enter parseIfStatement()");
+
 		Token save_token = current_token;
 		getNextToken(); // should be (
 		if (debug)
@@ -125,7 +204,8 @@ public class Parser implements Constants {
 				System.out.println("If exp: "+current_token.value);
 
 			TreeNode e = parseExpression();
-			getNextToken(); 	// should be )
+			if (adv)
+				getNextToken(); 	// should be )
 			if (expect(current_token, T_RPAREN, "Not a valid IfStatement: Missing ')'")) {
 				getNextToken(); 	// advance token to read in start of statement
 				if (debug)
@@ -141,8 +221,14 @@ public class Parser implements Constants {
 					if (debug)
 						System.out.println("If else statement: "+current_token.value);
 					TreeNode es = parseStatement();
+
+					if (debug)
+						System.out.println("Leaving parseIfStatement()");
 					return new TreeNodeCondStatement(save_token, IF_STATEMENT, e, s, es);
 				} else { 	// return 1st rule
+					pushback_token = current_token;
+					if (debug)
+						System.out.println("Leaving parseIfStatement()");
 					return new TreeNodeCondStatement(save_token, IF_STATEMENT, e, s, null);
 				}
 			}
@@ -155,6 +241,9 @@ public class Parser implements Constants {
 	 * While_Statement -> WHILE (Expression) Statement
 	 */
 	public TreeNode parseWhileStatement() throws ParserException {
+		if (debug)
+			System.out.println("Enter parseWhileStatement()");
+
 		Token save_token = current_token;
 		getNextToken(); 	// should be (
 		if (debug)
@@ -166,7 +255,8 @@ public class Parser implements Constants {
 				System.out.println("While exp: "+current_token.value);
 
 			TreeNode e = parseExpression();
-			getNextToken(); 	// should be )
+			if (adv)
+				getNextToken(); 	// should be )
 			if (debug)
 				System.out.println("While ): "+current_token.value);
 
@@ -176,6 +266,9 @@ public class Parser implements Constants {
 					System.out.println("While statement: "+current_token.value);
 
 				TreeNode s = parseStatement();
+
+				if (debug)
+					System.out.println("Leaving parseWhileStatement()");
 				return new TreeNodeCondStatement(save_token, WHILE_STATEMENT, e, s, null);
 			}
 		}
@@ -186,24 +279,34 @@ public class Parser implements Constants {
 	 * Return_Statement -> RETURN; | RETURN Expression;
 	 */
 	public TreeNode parseReturnStatement() throws ParserException {
+		if (debug)
+			System.out.println("Enter parseReturnStatement()");
+
 		TreeNode t = new TreeNode(current_token, RETURN_STATEMENT);
 		getNextToken(); 	// should be ; or expression
 		if (debug)
 			System.out.println("Return: "+current_token.value);
 
 		if (current_token.kind == T_SEMICOLON) {
+			if (debug)
+				System.out.println("Leaving parseReturnStatement()");
 			return t;
 		} else {
 			TreeNode e = parseExpression();
 			t.next_nodes.add(e);
+			if (debug)
+				System.out.println("Leaving parseReturnStatement()");
 			return t;
 		}
 	}
 
-	/*
+	/*	
 	 * Write_Statement -> WRITE (Expression); | WRITELN();
 	 */
 	public TreeNode parseWriteStatement() throws ParserException {
+		if (debug)
+			System.out.println("Enter parseWriteStatement()");
+
 		Token save_token = current_token;
 		if (current_token.kind == T_WRITELN) {
 			getNextToken(); 	// should be (
@@ -221,6 +324,8 @@ public class Parser implements Constants {
 						System.out.println("Writeln ;: "+current_token.value);
 
 					if (expect(current_token, T_SEMICOLON, "Not a valid WriteStatement: Missing ; after writeln()")) {
+						if (debug)
+							System.out.println("Leaving parseWriteStatement()");
 						return new TreeNodeStatement(save_token, WRITE_STATEMENT, null);
 					}
 				}
@@ -236,6 +341,7 @@ public class Parser implements Constants {
 					System.out.println("Write exp: "+current_token.value);
 
 				TreeNode e = parseExpression();
+				
 				getNextToken(); 	// should be )
 				if (debug)
 					System.out.println("Write ): "+current_token.value);
@@ -246,6 +352,8 @@ public class Parser implements Constants {
 						System.out.println("Write ;: "+current_token.value);
 
 					if (expect(current_token, T_SEMICOLON, "Not a valid WriteStatement: Missing ;")) {
+						if (debug)
+							System.out.println("Leaving parseWriteStatement()");
 						return new TreeNodeStatement(save_token, WRITE_STATEMENT, e);
 					}
 				}
@@ -259,16 +367,25 @@ public class Parser implements Constants {
 	 * Expression_Statement -> Expression; | ;
 	 */
 	public TreeNode parseExpressionStatement() throws ParserException {
+		if (debug)
+			System.out.println("Enter parseExpressionStatement()");
+
 		if (current_token.kind == T_SEMICOLON) {
+			if (debug)
+				System.out.println("Leaving parseExpressionStatement()");
 			return new TreeNodeStatement(current_token, EXPRESSION_STATEMENT, null);
 		} else {
 			TreeNode t = parseExpression();
 			Token save_token = current_token;
-			getNextToken();
+			if (adv) 	// only want to advance at certain points
+				getNextToken();
+			adv = true;
 			if (debug)
 				System.out.println("Expression Statement: "+current_token.value);
 
 			if (expect(current_token, T_SEMICOLON, "Not a valid ExpressionStatement: Missing ';'")) {
+				if (debug)
+					System.out.println("Leaving parseExpressionStatement()");
 				return new TreeNodeStatement(save_token, EXPRESSION_STATEMENT, t);
 			}
 		}
@@ -276,12 +393,44 @@ public class Parser implements Constants {
 	}
 
 	/*
-	 * TODO: Expression -> Var = Expression
-	 * Currently: Expression -> Var = Expression | <num>
+	 * TODO: Make this method look nicer
+	 * Expression -> Var = Expression | Comp_Expression
+	 * Var and Comp_Expression can both start with <id>, *<id>, <num>
 	 */
+
 	public TreeNode parseExpression() throws ParserException {
+		if (debug)
+			System.out.println("Enter parseExpression()");
+
+		TreeNodeExpression t = new TreeNodeExpression(current_token, EXPRESSION, null);
+
+		// if it's <id> or *<id>, could be var or comp_exp
+		// assume it's a comp_exp
+		TreeNode ce = parseCompExpression();
+
+		if (current_token.kind == T_EQUAL) { 	// continue on var = expression
+			t.var = ce;
+			getNextToken(); 	// advance to start expression
+			if (debug)
+				System.out.println("Expression exp: "+current_token.value);
+
+			TreeNode exp = parseExpression();
+			t.expression = exp;
+
+			if (debug)
+				System.out.println("Leaving parseExpression()");
+			return t;
+		}
+		return null;
+	}
+
+	/*public TreeNode parseExpression() throws ParserException {
+		if (debug)
+			System.out.println("Enter parseExpression()");
+
 		TreeNodeExpression t = new TreeNodeExpression(current_token, EXPRESSION, null);
 		Token save_token = current_token;
+
 		if (current_token.kind == T_ID || current_token.kind == T_STAR) { 	// Var starts with <id>, *
 			TreeNode v = parseVar();
 			t.var = v;
@@ -291,41 +440,188 @@ public class Parser implements Constants {
 					System.out.println("Expression =: "+current_token.value);
 			}
 
+			if (isRelop(current_token.kind)) { 	// because Var and E can both start with an <id> or *<id>
+				TreeNodeCompExpression c = new TreeNodeCompExpression(save_token, COMP_EXPRESSION);
+				v.node_type = EXPRESSION_FACTOR;
+				c.e1 = v;
+				c.op = parseRelop();
+				getNextToken(); 	// advance to start e
+				if (debug)
+					System.out.println("Comp_exp (relop) E2: "+current_token.value);
+
+				c.e2 = parseE();
+
+				if (debug)
+					System.out.println("Leaving parseExpression()");
+				return c;
+			}
+
+			if (isAddop(current_token.kind)) { 	// because Var and E can both start with an <id> or *<id>
+				TreeNodeCompExpression c = new TreeNodeCompExpression(save_token, E_EXPRESSION);
+				v.node_type = EXPRESSION_FACTOR;
+				c.e1 = v;
+				c.op = parseAddop();
+				getNextToken(); 	// advance to start e
+				if (debug)
+					System.out.println("Comp_exp (addop) E2: "+current_token.value);
+
+				c.e2 = parseE();
+
+				if (debug)
+					System.out.println("Leaving parseExpression()");
+				return c;
+			}
+
+			if (current_token.kind == T_RBRACKET) { 	// represents an <id>[Expression] that needs to be ended
+				if (debug)
+					System.out.println("Leaving parseExpression()");
+				return v;
+			}
+
+			if (current_token.kind == T_SEMICOLON) { 	// represents comp_exp -> E
+				v.node_type = EXPRESSION_FACTOR;
+
+				if (debug)
+					System.out.println("Leaving parseExpression()");
+				return v;
+			}
+
 			if (expect(current_token, T_EQUAL, "Not a valid Expression: Missing '='")) {
 				getNextToken(); 	// advance to start expression
 				if (debug)
 					System.out.println("Expression exp: "+current_token.value);
+
 				TreeNode e = parseExpression();
 				t.expression = e;
+
+				if (debug)
+					System.out.println("Leaving parseExpression()");
 				return t;
 			}
 		} else if (current_token.kind == T_NUM) {
-			return new TreeNode(current_token, EXPRESSION_INT);
+			TreeNode n = new TreeNode(current_token, EXPRESSION_INT);
+			getNextToken(); 	// check to see if comp_exp (should be relop)
+			adv = false;
+			if (debug)
+				System.out.println("Comp_exp num: "+current_token.value);
+
+			if (isRelop(current_token.kind)) { 	// continue parsing as if comp_exp
+				adv = true;
+				TreeNodeCompExpression c = new TreeNodeCompExpression(save_token, COMP_EXPRESSION);
+				n.node_type = EXPRESSION_FACTOR;
+				c.e1 = n;
+				c.op = parseRelop();
+				getNextToken(); 	// advance to start e
+				if (debug)
+					System.out.println("Comp_exp (relop) E2: "+current_token.value);
+
+				c.e2 = parseE();
+
+				if (debug)
+					System.out.println("Leaving parseExpression()");
+				return c;
+			}
+
+			if (isAddop(current_token.kind)) { 	// continue parsing as if comp_exp
+				adv = true;
+				TreeNodeCompExpression c = new TreeNodeCompExpression(save_token, E_EXPRESSION);
+				n.node_type = EXPRESSION_FACTOR;
+				c.e1 = n;
+				c.op = parseAddop();
+				getNextToken(); 	// advance to start e
+				if (debug)
+					System.out.println("Comp_exp (addop) E2: "+current_token.value);
+
+				c.e2 = parseE();
+
+				if (debug)
+					System.out.println("Leaving parseExpression()");
+				return c;
+			}
+
+			if (current_token.kind == T_RBRACKET) { 	// represents an <id>[Expression] that needs to be ended
+				if (debug)
+					System.out.println("Leaving parseExpression()");
+				return n;
+			}
+
+			if (current_token.kind == T_SEMICOLON) { 	// represents comp_exp -> E
+				n.node_type = EXPRESSION_FACTOR;
+
+				if (debug)
+					System.out.println("Leaving parseExpression()");
+				return n;
+			}
+
+			if (debug)
+				System.out.println("Leaving parseExpression()");
+			return n;
+
+		} else if (current_token.kind == T_MINUS || current_token.kind == T_AMP) {
+			if (debug)
+				System.out.println("Leaving parseExpression()");
+			return parseCompExpression();
 		}
 		else {
 			ParserException pe = new ParserException("Not a valid Expression: not an id or num.");
 			throw pe;
 		}
 		return null;
+	}*/
+
+	/*
+	 * Comp_Expression -> E RELOP E | E
+	 */
+	public TreeNode parseCompExpression() throws ParserException {
+		if (debug)
+			System.out.println("Enter parseCompExpression()");
+
+		TreeNodeCompExpression t = new TreeNodeCompExpression(current_token, COMP_EXPRESSION);
+		t.e1 = parseE();
+
+		getNextToken(); 	// advance to check relop/op
+		if (debug)
+			System.out.println("CE relop: "+current_token.value);
+
+		if (isRelop(current_token.kind)) { 	// E RELOP E
+			t.op = parseRelop();
+			getNextToken(); 	// advance to start e2
+			if (debug)
+				System.out.println("CE e2: "+current_token.value);
+
+			t.e2 = parseE();
+		} else if (current_token.kind == T_EQUAL) { 	// supposed to be a var, go back
+			t.e1.node_type = VAR;
+			return t.e1;
+		} else { 	
+			pushback_token = current_token;
+		}
+		if (debug)
+			System.out.println("Leaving parseCompExpression()");
+		return t;
 	}
 
 	/*
 	 * Var -> <id> | <id>[Expression] | *<id>
 	 */
 	public TreeNode parseVar() throws ParserException {
+		if (debug)
+			System.out.println("Enter parseVar()");
+
 		TreeNodeExpression t = new TreeNodeExpression(current_token, EXPRESSION_VAR, null);
 		if (current_token.kind == T_ID) {
 			getNextToken(); 	// check to see if [
 			if (debug)
 				System.out.println("Var [: "+current_token.value);
-			
-			if (current_token.kind == T_LBRACKET) {
+
+			if (current_token.kind == T_LBRACKET) { 	// if <id>[Expression]
 				getNextToken(); 	// advance to start expression
 				if (debug)
 					System.out.println("Var exp: "+current_token.value);
-				
+
 				TreeNode e = parseExpression();
-				getNextToken(); 	// should be ]
+				if (adv)
+					getNextToken(); 	// should be ]
 				if (debug)
 					System.out.println("Var ]: "+current_token.value);
 
@@ -335,18 +631,29 @@ public class Parser implements Constants {
 						System.out.println("Var exp2: "+current_token.value);
 
 					t.expression = e;
+					t.value = t.value+"["+e.value+"]"; 	// TODO: not sure if I want to change the value
+
+					if (debug)
+						System.out.println("Leaving parseVar()");
 					return t;
 				}
-			} else {
+			} else { 	// <id>
+				pushback_token = current_token;
+
+				if (debug)
+					System.out.println("Leaving parseVar()");
 				return t;
 			}
-		} else { 	// *
+		} else { 	// *<id>
 			getNextToken(); 	// should be <id>
 			if (debug)
 				System.out.println("Var id: "+current_token.value);
 
 			if (expect(current_token, T_ID, "Not a valid var: not an <id> after *")) {
 				t.value = "*"+current_token.value;
+
+				if (debug)
+					System.out.println("Leaving parseVar()");
 				return t;
 			}
 		}
@@ -354,20 +661,182 @@ public class Parser implements Constants {
 	}
 
 	/*
+	 * E -> E ADDOP T | T
+	 */
+	public TreeNode parseE() throws ParserException {
+		if (debug)
+			System.out.println("Enter parseE()");
+
+		TreeNodeCompExpression t = new TreeNodeCompExpression(current_token, ET_EXPRESSION);
+		t.e2 = parseT();
+		
+		getNextToken(); 	// to get addop
+		if (debug)
+			System.out.println("E addop1: "+current_token.value);
+
+		while(isAddop(current_token.kind)) {
+			t.op = parseAddop();
+			getNextToken(); 	// to get to start of T
+			if (debug)
+				System.out.println("E isaddop: "+current_token.value);
+
+			TreeNodeCompExpression e = new TreeNodeCompExpression(current_token, ET_EXPRESSION);
+			e.e2 = parseT();
+			getNextToken(); 	// to get addop TODO: needed?
+			if (debug)
+				System.out.println("E isaddop1: "+current_token.value);
+			
+			t.e1 = e;
+		}
+
+		if (debug)
+			System.out.println("E: "+current_token.value);
+
+		pushback_token = current_token;
+		
+		if (debug)
+			System.out.println("Leaving parseE()");
+		return t;
+	}
+	
+	/*
+	 * T -> T MULOP F | F
+	 */
+	public TreeNode parseT() throws ParserException {
+		if (debug)
+			System.out.println("Enter parseT()");
+
+		TreeNodeCompExpression t = new TreeNodeCompExpression(current_token, ET_EXPRESSION);
+		t.e2 = parseF();
+		
+		getNextToken(); 	// to get mulop
+		if (debug)
+			System.out.println("T mulop1: "+current_token.value);
+
+		while(isMulop(current_token.kind)) {
+			t.op = parseMulop();
+			getNextToken(); 	// to get to start of F
+			if (debug)
+				System.out.println("T ismulop: "+current_token.value);
+
+			TreeNodeCompExpression e = new TreeNodeCompExpression(current_token, ET_EXPRESSION);
+			e.e2 = parseF();
+			getNextToken(); 	// to get mulop TODO: needed?
+			if (debug)
+				System.out.println("T ismulop1: "+current_token.value);
+			
+			t.e1 = e;
+		}
+
+		if (debug)
+			System.out.println("T: "+current_token.value);
+
+		pushback_token = current_token;
+		
+		if (debug)
+			System.out.println("Leaving parseT()");
+		return t;
+	}
+
+	/*
+	 * F -> -Factor | &Factor | *Factor | Factor
+	 */
+	public TreeNode parseF() throws ParserException {
+		if (debug)
+			System.out.println("Enter parseF()");
+
+		TreeNode f = null;
+		if (current_token.kind == T_ID || current_token.kind == T_NUM || current_token.kind == T_STRING) {
+			TreeNode f1 = parseFactor();
+			
+			if (debug)
+				System.out.println("Leaving parseF()");
+			return f1;
+		} 
+
+		int[] k = new int[] {T_MINUS, T_AMP, T_STAR};
+		if (expect(current_token, k, "Not a valid F")) {
+			Token save_token = current_token;
+			getNextToken(); 	// advance to start factor
+			if (debug)
+				System.out.println("F: "+current_token.value);
+
+			f = parseFactor();
+			f.value = save_token.value+current_token.value;
+
+			if (debug)
+				System.out.println("Leaving parseF()");
+			return f;
+		}
+		return null;
+	}
+
+	/*
+	 * Factor -> <num> | <string> | <id>
+	 */
+	public TreeNode parseFactor() throws ParserException {
+		if (debug)
+			System.out.println("Enter parseFactor()");
+
+		int[] k = new int[] {T_NUM, T_STRING, T_ID};
+		if (expect(current_token, k, "Not a valid factor: needs to be <num>, <string>, or <id>")) {
+			if (debug)
+				System.out.println("Leaving parseFactor()");
+			return new TreeNode(current_token, EXPRESSION_FACTOR);
+		}
+		return null;
+	}
+
+	/*
+	 * Relop -> <= | < | == | != | > | >=
+	 */
+	public TreeNode parseRelop() {
+		if (debug) {
+			System.out.println("Enter parseRelop()");
+			System.out.println("Leaving parseRelop()");
+		}
+		return new TreeNode(current_token, EXPRESSION_RELOP);
+	}
+
+	/*
+	 * Addop -> + | -
+	 */
+	public TreeNode parseAddop() {
+		if (debug) {
+			System.out.println("Enter parseAddop()");
+			System.out.println("Leaving parseAddop()");
+		}
+		return new TreeNode(current_token, OP);
+	}
+	
+	/*
+	 * Mulop -> * | / | %
+	 */
+	public TreeNode parseMulop() {
+		if (debug) {
+			System.out.println("Enter parseAddop()");
+			System.out.println("Leaving parseAddop()");
+		}
+		return new TreeNode(current_token, OP);
+	}
+
+	/*
 	 * Preorder traversal of tree
+	 * TODO: E_EXPRESSION, OP
+	 * TODO: make sure tree is printing correctly
 	 */
 	public static void printTree(TreeNode t, String spaces) {
 		spaces += " ";
 		if (t != null) {
 			switch(t.node_type) {
-			case 1:
+			case PROGRAM:
 				System.out.println(spaces+"Node type "+t.node_type+" (program) at line "+t.line+" goes to {");
 				for (int i = 0; i < t.next_nodes.size(); i++) {
 					printTree(t.next_nodes.get(i), spaces);
 				}
 				System.out.println(spaces+"}");
 				break;
-			case 10:
+			case COMPOUND_STATEMENT:
 				System.out.println(spaces+"Node type "+t.node_type+" (compound statement) at line "+t.line+" consists of {");
 				TreeNodeStatement s10 = (TreeNodeStatement) t;
 				for (int i = 0; i < s10.next_nodes.size(); i++) {
@@ -375,13 +844,13 @@ public class Parser implements Constants {
 				}
 				System.out.println(spaces+"}");
 				break;
-			case 14: 
+			case EXPRESSION_STATEMENT: 
 				System.out.println(spaces+"Node type "+t.node_type+" (expression statement) at line "+t.line+" goes to {");
 				TreeNodeStatement s = (TreeNodeStatement) t;
 				printTree(s.expression, spaces);
 				System.out.println(spaces+"}");
 				break;
-			case 15:
+			case IF_STATEMENT:
 				TreeNodeCondStatement ifcs = (TreeNodeCondStatement) t;
 				System.out.println(spaces+"Node type "+t.node_type+" (if statement) at line "+t.line+" has condition (");
 				printTree(ifcs.expression, spaces);
@@ -394,7 +863,7 @@ public class Parser implements Constants {
 					System.out.println(spaces+"}");
 				}
 				break;
-			case 16:
+			case WHILE_STATEMENT:
 				TreeNodeCondStatement wcs = (TreeNodeCondStatement) t;
 				System.out.println(spaces+"Node type "+t.node_type+" (while statement) at line "+t.line+" has condition (");
 				printTree(wcs.expression, spaces);
@@ -402,20 +871,20 @@ public class Parser implements Constants {
 				printTree(wcs.statement, spaces);
 				System.out.println(spaces+"}");
 				break;
-			case 17:
+			case RETURN_STATEMENT:
 				System.out.println(spaces+"Node type "+t.node_type+" (return statement) at line "+t.line+" has return value of (");
 				for (int i = 0; i < t.next_nodes.size(); i++) {
 					printTree(t.next_nodes.get(i), spaces);
 				}
 				System.out.println(spaces+")");
 				break;
-			case 18:
+			case WRITE_STATEMENT:
 				System.out.println(spaces+"Node type "+t.node_type+" (write statement) at line "+t.line+" writes {");
 				TreeNodeStatement s18 = (TreeNodeStatement) t;
 				printTree(s18.expression, spaces);
 				System.out.println(spaces+"}");
 				break;
-			case 19: 	// TODO: make this print with more sense
+			case EXPRESSION: 	// TODO: make this print with more sense
 				TreeNodeExpression e19 = (TreeNodeExpression) t;
 				System.out.println(spaces+"Node type "+e19.node_type+" (expression) at line "+e19.line+" has id (");
 				printTree(e19.var, spaces);
@@ -427,7 +896,7 @@ public class Parser implements Constants {
 				}
 				System.out.println(spaces+"}");
 				break;
-			case 101:
+			case EXPRESSION_VAR:
 				TreeNodeExpression e20 = (TreeNodeExpression) t;
 				if (e20.expression != null) {
 					System.out.println(spaces+e20.value+"[");
@@ -437,9 +906,36 @@ public class Parser implements Constants {
 					System.out.println(spaces+e20.value);
 				}
 				break;
-			case 100: 
+			case EXPRESSION_INT: 
 				System.out.println(spaces+"Node type "+t.node_type+" (int_value) at line "+t.line+" has value "+t.value);
 				break;
+			case EXPRESSION_FACTOR:
+				System.out.println(spaces+"Node type "+t.node_type+" (factor) at line "+t.line+" has value "+t.value);
+				break;
+			case COMP_EXPRESSION:
+				TreeNodeCompExpression ce = (TreeNodeCompExpression) t;
+				System.out.println(spaces+"Node type "+ce.node_type+" (comp_expression) at line "+ce.line+" has e1 {");
+				printTree(ce.e1, spaces);
+				if (ce.op != null) {
+					System.out.println(spaces+"} relop '"+ce.op.value+"' and e2 {");
+					printTree(ce.e2, spaces);
+				}
+				System.out.println(spaces+"}");
+				break;
+			case ET_EXPRESSION:
+				TreeNodeCompExpression ece = (TreeNodeCompExpression) t;
+				if (ece.e1 != null) {
+					System.out.println(spaces+"Node type "+ece.node_type+" (comp_expression) at line "+ece.line+" has e {");
+					printTree(ece.e1, spaces);
+					System.out.println(spaces+"} op '"+ece.op.value+"' and t {");
+					printTree(ece.e2, spaces);
+					System.out.println(spaces+"}");
+				} else {
+					System.out.println(spaces+"Node type "+ece.node_type+" (comp_expression) at line "+ece.line+" has t {");
+					printTree(ece.e2, spaces);
+					System.out.println(spaces+"}");
+				}
+
 			}
 		}
 	}

@@ -156,6 +156,8 @@ public class Scan implements Constants {
 						line = "";
 						getNextToken();
 						return;
+					} else {
+						setToken(curpos, nextpos, T_SLASH);
 					}
 				} catch (IndexOutOfBoundsException e) {	// / Token
 					setToken(curpos, nextpos, T_SLASH);

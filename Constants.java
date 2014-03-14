@@ -12,9 +12,14 @@ public interface Constants {
 	static final int WRITE_STATEMENT = 18;
 	static final int EXPRESSION = 19;
 	static final int VAR = 20;
+	static final int COMP_EXPRESSION = 50;
+	static final int ET_EXPRESSION = 51;
+	static final int OP = 75;
 	static final int EXPRESSION_INT = 100;
 	static final int EXPRESSION_VAR = 101;
-	
+	static final int EXPRESSION_STRING = 102;
+	static final int EXPRESSION_RELOP = 103;
+	static final int EXPRESSION_FACTOR = 104;
 	
 	// TOKEN CONSTANTS
 	static final int T_ID = 1;	// identifiers - start with a letter and consist of letters, digits, and underscores
