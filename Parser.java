@@ -1,18 +1,18 @@
-// TODO: Figure out which each method can return
+// TODO: Expand factor
+// TODO: Declarations
+// TODO: Make sure tree is correct (right assoc vs. left assoc) arraylist adding to end or beginning?
 
 public class Parser implements Constants {
 
 	Scan my_scanner;
 	Token current_token;
 	Token pushback_token;
-	boolean debug = true;
-	boolean adv; 	// boolean to turn on/off some getNextToken() calls
+	boolean debug = false;
 
 	/*
 	 * A constructor
 	 */
 	public Parser(String filename){
-		adv = true;
 		pushback_token = null;
 		try {
 			my_scanner = new Scan(filename);
@@ -83,7 +83,7 @@ public class Parser implements Constants {
 		}
 		return false;
 	}
-	
+
 	/*
 	 * Checks to see if a current token kind is an mulop
 	 */
@@ -174,9 +174,7 @@ public class Parser implements Constants {
 		while (current_token.kind != T_RBRACE && current_token.kind != T_EOF) {
 			TreeNode e = parseStatement();
 			t.next_nodes.add(e);
-			if (adv)
-				getNextToken();
-			adv = true;
+			getNextToken();
 			if (debug)
 				System.out.println("Compound Statement: "+current_token.value);
 		}
@@ -204,8 +202,7 @@ public class Parser implements Constants {
 				System.out.println("If exp: "+current_token.value);
 
 			TreeNode e = parseExpression();
-			if (adv)
-				getNextToken(); 	// should be )
+			getNextToken(); 	// should be )
 			if (expect(current_token, T_RPAREN, "Not a valid IfStatement: Missing ')'")) {
 				getNextToken(); 	// advance token to read in start of statement
 				if (debug)
@@ -255,8 +252,7 @@ public class Parser implements Constants {
 				System.out.println("While exp: "+current_token.value);
 
 			TreeNode e = parseExpression();
-			if (adv)
-				getNextToken(); 	// should be )
+			getNextToken(); 	// should be )
 			if (debug)
 				System.out.println("While ): "+current_token.value);
 
@@ -341,7 +337,7 @@ public class Parser implements Constants {
 					System.out.println("Write exp: "+current_token.value);
 
 				TreeNode e = parseExpression();
-				
+
 				getNextToken(); 	// should be )
 				if (debug)
 					System.out.println("Write ): "+current_token.value);
@@ -377,9 +373,7 @@ public class Parser implements Constants {
 		} else {
 			TreeNode t = parseExpression();
 			Token save_token = current_token;
-			if (adv) 	// only want to advance at certain points
-				getNextToken();
-			adv = true;
+			getNextToken();
 			if (debug)
 				System.out.println("Expression Statement: "+current_token.value);
 
@@ -393,9 +387,8 @@ public class Parser implements Constants {
 	}
 
 	/*
-	 * TODO: Make this method look nicer
 	 * Expression -> Var = Expression | Comp_Expression
-	 * Var and Comp_Expression can both start with <id>, *<id>, <num>
+	 * Var and Comp_Expression can both start with <id>, *<id>, TODO: <id>[Expression], <num>
 	 */
 
 	public TreeNode parseExpression() throws ParserException {
@@ -421,9 +414,10 @@ public class Parser implements Constants {
 				System.out.println("Leaving parseExpression()");
 			return t;
 		}
-		return null;
-	}
 
+		t.expression = ce;
+		return t;
+	}
 	/*public TreeNode parseExpression() throws ParserException {
 		if (debug)
 			System.out.println("Enter parseExpression()");
@@ -603,8 +597,9 @@ public class Parser implements Constants {
 
 	/*
 	 * Var -> <id> | <id>[Expression] | *<id>
+	 * TODO: this method is never used. this shouldn't happen
 	 */
-	public TreeNode parseVar() throws ParserException {
+	/*public TreeNode parseVar() throws ParserException {
 		if (debug)
 			System.out.println("Enter parseVar()");
 
@@ -659,6 +654,7 @@ public class Parser implements Constants {
 		}
 		return null;
 	}
+	 */
 
 	/*
 	 * E -> E ADDOP T | T
@@ -669,7 +665,7 @@ public class Parser implements Constants {
 
 		TreeNodeCompExpression t = new TreeNodeCompExpression(current_token, ET_EXPRESSION);
 		t.e2 = parseT();
-		
+
 		getNextToken(); 	// to get addop
 		if (debug)
 			System.out.println("E addop1: "+current_token.value);
@@ -685,7 +681,7 @@ public class Parser implements Constants {
 			getNextToken(); 	// to get addop TODO: needed?
 			if (debug)
 				System.out.println("E isaddop1: "+current_token.value);
-			
+
 			t.e1 = e;
 		}
 
@@ -693,12 +689,12 @@ public class Parser implements Constants {
 			System.out.println("E: "+current_token.value);
 
 		pushback_token = current_token;
-		
+
 		if (debug)
 			System.out.println("Leaving parseE()");
 		return t;
 	}
-	
+
 	/*
 	 * T -> T MULOP F | F
 	 */
@@ -708,7 +704,7 @@ public class Parser implements Constants {
 
 		TreeNodeCompExpression t = new TreeNodeCompExpression(current_token, ET_EXPRESSION);
 		t.e2 = parseF();
-		
+
 		getNextToken(); 	// to get mulop
 		if (debug)
 			System.out.println("T mulop1: "+current_token.value);
@@ -724,15 +720,14 @@ public class Parser implements Constants {
 			getNextToken(); 	// to get mulop TODO: needed?
 			if (debug)
 				System.out.println("T ismulop1: "+current_token.value);
-			
+
 			t.e1 = e;
 		}
 
+		pushback_token = current_token;
 		if (debug)
 			System.out.println("T: "+current_token.value);
 
-		pushback_token = current_token;
-		
 		if (debug)
 			System.out.println("Leaving parseT()");
 		return t;
@@ -740,17 +735,19 @@ public class Parser implements Constants {
 
 	/*
 	 * F -> -Factor | &Factor | *Factor | Factor
+	 * TODO: Expand this
 	 */
 	public TreeNode parseF() throws ParserException {
 		if (debug)
 			System.out.println("Enter parseF()");
 
-		TreeNode f = null;
-		if (current_token.kind == T_ID || current_token.kind == T_NUM || current_token.kind == T_STRING) {
+		TreeNode f = null; 	// send these tokens to parseFactor()
+		if (current_token.kind == T_ID || current_token.kind == T_NUM || current_token.kind == T_STRLIT || current_token.kind == T_READ || current_token.kind == T_LPAREN) {
 			TreeNode f1 = parseFactor();
-			
+
 			if (debug)
 				System.out.println("Leaving parseF()");
+			
 			return f1;
 		} 
 
@@ -772,19 +769,160 @@ public class Parser implements Constants {
 	}
 
 	/*
-	 * Factor -> <num> | <string> | <id>
+	 * Factor -> (Expression) | Fun_Call | read() | <num> | <string> (strlit) | <id> | *<id> | <id>[Expression]
+	 * TODO: Expand into full production
 	 */
 	public TreeNode parseFactor() throws ParserException {
 		if (debug)
 			System.out.println("Enter parseFactor()");
 
-		int[] k = new int[] {T_NUM, T_STRING, T_ID};
-		if (expect(current_token, k, "Not a valid factor: needs to be <num>, <string>, or <id>")) {
+		TreeNode f = new TreeNode(current_token, EXPRESSION_FACTOR);
+
+		if (current_token.kind == T_LPAREN) { 	// parses (Expression)
+			getNextToken(); 	// to advance to start of expression
+			if (debug)
+				System.out.println("Factor Expression: "+current_token.value);
+
+			TreeNode e = parseExpression();
+			f.next_nodes.add(e);
+
+			getNextToken(); 	// should be )
+			if (debug)
+				System.out.println("Factor ) "+current_token.value);
+
+			if (expect(current_token, T_RPAREN, "Not a valid factor (expression): Missing ')'")) {
+				if (debug)
+					System.out.println("Leaving parseFactor()");
+
+				f.value = f.value+f.next_nodes.get(0).value+")"; 	// TODO: do I really want to change the value?	
+				return f;
+			}
+		}
+
+		if (current_token.kind == T_STAR) { 	// parses *<id>
+			getNextToken(); 	// should be <id>
+			if (debug)
+				System.out.println("Factor *<id>: "+current_token.value);
+
+			if (expect(current_token, T_ID, "Not a valid factor: needs to be *<id>")) {
+				if (debug)
+					System.out.println("Leaving parseFactor()");
+
+				f.value = "*"+f.value;
+				return f;
+			}
+		}
+
+		int[] k = new int[] {T_NUM, T_STRLIT, T_ID, T_READ}; 
+		if (expect(current_token, k, "Not a valid factor: needs to be <num>, <strlit>, or <id>")) {
+			if (current_token.kind == T_ID) { 	// parses <id>[Expression]
+				getNextToken(); 	// should be [
+				if (debug)
+					System.out.println("Factor id[: "+current_token.value);
+
+				if (current_token.kind == T_LBRACKET) { 	// continue parsing <id>[Expression]
+					getNextToken(); 	// advance to start expression
+					if (debug)
+						System.out.println("Factor id[] expression: "+current_token.value);
+
+					TreeNode e = parseExpression();
+					f.next_nodes.add(e);
+					getNextToken(); 	// should be ]
+					if (debug)
+						System.out.println("Factor id[]: "+current_token.value);
+
+					if (expect(current_token, T_RBRACKET, "Not a valid factor <id>[Expression]: Missing ']'")) {
+						if (debug)
+							System.out.println("Leaving parseFactor()");
+
+						f.value = f.value+"["+f.next_nodes.get(0).value+"]"; 	// TODO: do I really want to change the value?	
+						return f;
+					}
+				} else if (current_token.kind == T_LPAREN) { 	// parse Fun_Call
+					f.node_type = FUN_CALL;
+					getNextToken(); 	// advance to start of args
+					if (debug)
+						System.out.println("Factor args: "+current_token.value);
+
+					if (current_token.kind == T_RPAREN) {
+						if (debug)
+							System.out.println("Leaving parseFactor()");
+
+						return f;
+					}
+
+					f.next_nodes.add(parseFunCall());
+					getNextToken(); 	// should be )
+					if (debug)
+						System.out.println("Factor funcall ): "+current_token.value);
+
+					if (expect(current_token, T_RPAREN, "Not a valid factor Fun_Call: Missing ')'")) {
+						if (debug)
+							System.out.println("Leaving parseFactor()");
+
+						return f;
+					}
+				}
+				else {
+					pushback_token = current_token;
+				}
+			}
+
+			if (current_token.kind == T_READ) { 	// parses read()
+				getNextToken(); 	// should be (
+				if (debug)
+					System.out.println("Factor read (: "+current_token.value);
+
+				if (expect(current_token, T_LPAREN, "Not a valid read: Missing '('")) {
+					getNextToken(); 	// should be )
+					if (debug)
+						System.out.println("Factor read ): "+current_token.value);
+
+					if (expect(current_token, T_RPAREN, "Not a valid read: Missing ')'")) {
+						return f;
+					}
+				}
+			}
 			if (debug)
 				System.out.println("Leaving parseFactor()");
-			return new TreeNode(current_token, EXPRESSION_FACTOR);
+			//return new TreeNode(current_token, EXPRESSION_FACTOR);
+			return f;
 		}
 		return null;
+	}
+
+	/*
+	 * Fun_Call -> <id>(ARGS)
+	 * ARGS -> <empty> (done in factor) | Expression, Expression...
+	 */
+	public TreeNode parseFunCall() throws ParserException {
+		if (debug)
+			System.out.println("Enter parseFunCall()");
+
+		TreeNode t = new TreeNode(current_token, ARGS);
+		t.next_nodes.add(parseExpression());
+		getNextToken(); 	// should be , or other
+		if (debug)
+			System.out.println("FunCall ,: "+current_token.value);
+
+		while (current_token.kind == T_COMMA) {
+			getNextToken(); 	// advance to start of next expression
+			if (debug)
+				System.out.println("FunCall while: "+current_token.value);
+
+			TreeNode to_add = parseExpression();
+			t.next_nodes.add(to_add);
+			getNextToken(); 	// should be , or nothing
+			if (debug)
+				System.out.println("FunCall while ,: "+current_token.value);
+		}
+
+		pushback_token = current_token;
+
+		if (debug)
+			System.out.println("Leaving parseFunCall()");
+
+		return t;
 	}
 
 	/*
@@ -808,7 +946,7 @@ public class Parser implements Constants {
 		}
 		return new TreeNode(current_token, OP);
 	}
-	
+
 	/*
 	 * Mulop -> * | / | %
 	 */
@@ -822,120 +960,123 @@ public class Parser implements Constants {
 
 	/*
 	 * Preorder traversal of tree
-	 * TODO: E_EXPRESSION, OP
-	 * TODO: make sure tree is printing correctly
+	 * TODO: Factor printing everything
 	 */
 	public static void printTree(TreeNode t, String spaces) {
 		spaces += " ";
 		if (t != null) {
-			switch(t.node_type) {
-			case PROGRAM:
-				System.out.println(spaces+"Node type "+t.node_type+" (program) at line "+t.line+" goes to {");
+			switch (t.node_type) {
+			case PROGRAM: 
+				System.out.println(spaces+"Program node at line "+t.line+" consists of {");
 				for (int i = 0; i < t.next_nodes.size(); i++) {
 					printTree(t.next_nodes.get(i), spaces);
 				}
 				System.out.println(spaces+"}");
 				break;
 			case COMPOUND_STATEMENT:
-				System.out.println(spaces+"Node type "+t.node_type+" (compound statement) at line "+t.line+" consists of {");
-				TreeNodeStatement s10 = (TreeNodeStatement) t;
-				for (int i = 0; i < s10.next_nodes.size(); i++) {
-					printTree(s10.next_nodes.get(i), spaces);
+				System.out.println(spaces+"Compound Statement node at line "+t.line+" consists of {");
+				for (int i = 0; i < t.next_nodes.size(); i++) {
+					printTree(t.next_nodes.get(i), spaces);
 				}
 				System.out.println(spaces+"}");
 				break;
-			case EXPRESSION_STATEMENT: 
-				System.out.println(spaces+"Node type "+t.node_type+" (expression statement) at line "+t.line+" goes to {");
-				TreeNodeStatement s = (TreeNodeStatement) t;
-				printTree(s.expression, spaces);
+			case EXPRESSION_STATEMENT:
+				TreeNodeStatement es = (TreeNodeStatement) t;
+				System.out.println(spaces+"Expression Statement node at line "+es.line+" has expression {");
+				printTree(es.expression, spaces);
 				System.out.println(spaces+"}");
 				break;
 			case IF_STATEMENT:
-				TreeNodeCondStatement ifcs = (TreeNodeCondStatement) t;
-				System.out.println(spaces+"Node type "+t.node_type+" (if statement) at line "+t.line+" has condition (");
-				printTree(ifcs.expression, spaces);
+				TreeNodeCondStatement is = (TreeNodeCondStatement) t;
+				System.out.println(spaces+"If Statement node at line "+is.line+" has expression (");
+				printTree(is.expression, spaces);
 				System.out.println(spaces+") and statement {");
-				printTree(ifcs.statement, spaces);
-				System.out.println(spaces+"}");
-				if (ifcs.else_statement != null) {
-					System.out.println(spaces+"and else statement {");
-					printTree(ifcs.else_statement, spaces);
-					System.out.println(spaces+"}");
+				printTree(is.statement, spaces);
+				if (is.else_statement != null) {
+					System.out.println(spaces+"} and else statement {");
+					printTree(is.else_statement, spaces);
 				}
+				System.out.println(spaces+"}");
 				break;
 			case WHILE_STATEMENT:
-				TreeNodeCondStatement wcs = (TreeNodeCondStatement) t;
-				System.out.println(spaces+"Node type "+t.node_type+" (while statement) at line "+t.line+" has condition (");
-				printTree(wcs.expression, spaces);
+				TreeNodeCondStatement ws = (TreeNodeCondStatement) t;
+				System.out.println(spaces+"While Statement node at line "+ws.line+" has expression (");
+				printTree(ws.expression, spaces);
 				System.out.println(spaces+") and statement {");
-				printTree(wcs.statement, spaces);
+				printTree(ws.statement, spaces);
 				System.out.println(spaces+"}");
 				break;
 			case RETURN_STATEMENT:
-				System.out.println(spaces+"Node type "+t.node_type+" (return statement) at line "+t.line+" has return value of (");
+				System.out.println(spaces+"Return Statement node at line "+t.line+" returns (");
 				for (int i = 0; i < t.next_nodes.size(); i++) {
 					printTree(t.next_nodes.get(i), spaces);
 				}
 				System.out.println(spaces+")");
 				break;
 			case WRITE_STATEMENT:
-				System.out.println(spaces+"Node type "+t.node_type+" (write statement) at line "+t.line+" writes {");
-				TreeNodeStatement s18 = (TreeNodeStatement) t;
-				printTree(s18.expression, spaces);
-				System.out.println(spaces+"}");
+				TreeNodeStatement wrs = (TreeNodeStatement) t;
+				System.out.println(spaces+"Write Statement node at line "+wrs.line+" writes (");
+				printTree(wrs.expression, spaces);
+				System.out.println(spaces+")");
 				break;
-			case EXPRESSION: 	// TODO: make this print with more sense
-				TreeNodeExpression e19 = (TreeNodeExpression) t;
-				System.out.println(spaces+"Node type "+e19.node_type+" (expression) at line "+e19.line+" has id (");
-				printTree(e19.var, spaces);
-				System.out.println(spaces+") which equals {");
-				if (e19.expression != null) {
-					printTree(e19.expression, spaces);
+			case EXPRESSION: 
+				TreeNodeExpression e = (TreeNodeExpression) t;
+				if (e.var != null) {
+					System.out.println(spaces+"Expression Node at line "+e.line+" has var "+e.var.value);
+					System.out.println(spaces+"} = expression {");
+					printTree(e.expression, spaces);
+					System.out.println(spaces+"}");
 				} else {
-					System.out.println(spaces+e19.value);
+					System.out.println(spaces+"Expression Node at line "+e.line+" is a comp_expression {");
+					printTree(e.expression, spaces);
+					System.out.println(spaces+"}");
 				}
-				System.out.println(spaces+"}");
-				break;
-			case EXPRESSION_VAR:
-				TreeNodeExpression e20 = (TreeNodeExpression) t;
-				if (e20.expression != null) {
-					System.out.println(spaces+e20.value+"[");
-					printTree(e20.expression, spaces);
-					System.out.println(spaces+"]");
-				} else {
-					System.out.println(spaces+e20.value);
-				}
-				break;
-			case EXPRESSION_INT: 
-				System.out.println(spaces+"Node type "+t.node_type+" (int_value) at line "+t.line+" has value "+t.value);
-				break;
-			case EXPRESSION_FACTOR:
-				System.out.println(spaces+"Node type "+t.node_type+" (factor) at line "+t.line+" has value "+t.value);
 				break;
 			case COMP_EXPRESSION:
 				TreeNodeCompExpression ce = (TreeNodeCompExpression) t;
-				System.out.println(spaces+"Node type "+ce.node_type+" (comp_expression) at line "+ce.line+" has e1 {");
-				printTree(ce.e1, spaces);
 				if (ce.op != null) {
-					System.out.println(spaces+"} relop '"+ce.op.value+"' and e2 {");
+					System.out.println(spaces+"Comp Expression Node at line "+ce.line+" has E1 {");
+					printTree(ce.e1, spaces);
+					System.out.println(spaces+"} operator "+ce.op.value+" and E2 {");
 					printTree(ce.e2, spaces);
+					System.out.println(spaces+"}");
+				} else if (ce.e1.node_type == ET_EXPRESSION) {
+					System.out.println(spaces+"Comp Expression Node at line "+ce.line+" has E {");
+					printTree(ce.e1, spaces);
+					System.out.println(spaces+"}");
+				}
+				break;
+			case ET_EXPRESSION:
+				TreeNodeCompExpression ee = (TreeNodeCompExpression) t;
+				if (ee.e1 == null) {
+					System.out.println(spaces+"ET Expression Node at line "+ee.line+" has E or T {");
+					printTree(ee.e2, spaces);
+					System.out.println(spaces+"}");
+				} else {
+					System.out.println(spaces+"ET Expression Node at line "+ee.line+" has E1 or T1 {");
+					printTree(ee.e1, spaces);
+					System.out.println(spaces+"} operator "+ee.op.value+" and E2 or T2 {");
+					printTree(ee.e2, spaces);
+					System.out.println(spaces+"}");
+				}
+				break;
+			case EXPRESSION_FACTOR:
+				System.out.println(spaces+"Factor Node at line "+t.line+" has the value "+t.value);
+				break;
+			case FUN_CALL:
+				System.out.println(spaces+"Fun Call node at line "+t.line+" has value "+t.value+" and args (");
+				for (int i = 0; i < t.next_nodes.size(); i++) {
+					printTree(t.next_nodes.get(i), spaces);
+				}
+				System.out.println(spaces+")");
+				break;
+			case ARGS:
+				System.out.println(spaces+"Args node at line "+t.line+" consists of {");
+				for (int i = 0; i < t.next_nodes.size(); i++) {
+					printTree(t.next_nodes.get(i), spaces);
 				}
 				System.out.println(spaces+"}");
 				break;
-			case ET_EXPRESSION:
-				TreeNodeCompExpression ece = (TreeNodeCompExpression) t;
-				if (ece.e1 != null) {
-					System.out.println(spaces+"Node type "+ece.node_type+" (comp_expression) at line "+ece.line+" has e {");
-					printTree(ece.e1, spaces);
-					System.out.println(spaces+"} op '"+ece.op.value+"' and t {");
-					printTree(ece.e2, spaces);
-					System.out.println(spaces+"}");
-				} else {
-					System.out.println(spaces+"Node type "+ece.node_type+" (comp_expression) at line "+ece.line+" has t {");
-					printTree(ece.e2, spaces);
-					System.out.println(spaces+"}");
-				}
-
 			}
 		}
 	}

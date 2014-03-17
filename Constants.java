@@ -15,6 +15,8 @@ public interface Constants {
 	static final int COMP_EXPRESSION = 50;
 	static final int ET_EXPRESSION = 51;
 	static final int OP = 75;
+	static final int FUN_CALL = 76;
+	static final int ARGS = 77;
 	static final int EXPRESSION_INT = 100;
 	static final int EXPRESSION_VAR = 101;
 	static final int EXPRESSION_STRING = 102;
