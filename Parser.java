@@ -1,6 +1,4 @@
-// TODO: Expand factor
 // TODO: Declarations
-// TODO: Make sure tree is correct (right assoc vs. left assoc) arraylist adding to end or beginning?
 
 public class Parser implements Constants {
 
@@ -68,9 +66,8 @@ public class Parser implements Constants {
 	 * Checks to see if a current token kind is a relop
 	 */
 	public boolean isRelop(int k) {
-		if (k == T_LEQ || k == T_LESS || k == T_EQEQ || k == T_NEQ || k == T_GREATER || k == T_GEQ) {
+		if (k == T_LEQ || k == T_LESS || k == T_EQEQ || k == T_NEQ || k == T_GREATER || k == T_GEQ)
 			return true;
-		}
 		return false;
 	}
 
@@ -78,9 +75,8 @@ public class Parser implements Constants {
 	 * Checks to see if a current token kind is an addop
 	 */
 	public boolean isAddop(int k) {
-		if (k == T_PLUS || k == T_MINUS) {
+		if (k == T_PLUS || k == T_MINUS)
 			return true;
-		}
 		return false;
 	}
 
@@ -88,12 +84,20 @@ public class Parser implements Constants {
 	 * Checks to see if a current token kind is an mulop
 	 */
 	public boolean isMulop(int k) {
-		if (k == T_STAR || k == T_SLASH || k == T_PERCENT) {
+		if (k == T_STAR || k == T_SLASH || k == T_PERCENT)
 			return true;
-		}
 		return false;
 	}
 
+	/*
+	 * Checks to see if a current token kind is a type specifier
+	 */
+	public boolean isTypeSpecifier(int k) {
+		if (k == T_INT || k == T_STRING || k == T_VOID)
+			return true;
+		return false;
+	}
+	
 	/*
 	 * Highest level (entry) into parse
 	 * Program -> Statement
@@ -671,18 +675,20 @@ public class Parser implements Constants {
 			System.out.println("E addop1: "+current_token.value);
 
 		while(isAddop(current_token.kind)) {
-			t.op = parseAddop();
+			TreeNode o = parseAddop();
 			getNextToken(); 	// to get to start of T
 			if (debug)
 				System.out.println("E isaddop: "+current_token.value);
 
 			TreeNodeCompExpression e = new TreeNodeCompExpression(current_token, ET_EXPRESSION);
+			e.e1 = t;
+			e.op = o;
 			e.e2 = parseT();
 			getNextToken(); 	// to get addop TODO: needed?
 			if (debug)
 				System.out.println("E isaddop1: "+current_token.value);
 
-			t.e1 = e;
+			t = e;
 		}
 
 		if (debug)
@@ -710,18 +716,20 @@ public class Parser implements Constants {
 			System.out.println("T mulop1: "+current_token.value);
 
 		while(isMulop(current_token.kind)) {
-			t.op = parseMulop();
+			TreeNode o = parseMulop();
 			getNextToken(); 	// to get to start of F
 			if (debug)
 				System.out.println("T ismulop: "+current_token.value);
 
 			TreeNodeCompExpression e = new TreeNodeCompExpression(current_token, ET_EXPRESSION);
+			e.e1 = t;
+			e.op = o;
 			e.e2 = parseF();
 			getNextToken(); 	// to get mulop TODO: needed?
 			if (debug)
 				System.out.println("T ismulop1: "+current_token.value);
 
-			t.e1 = e;
+			t = e;
 		}
 
 		pushback_token = current_token;
@@ -910,8 +918,7 @@ public class Parser implements Constants {
 			if (debug)
 				System.out.println("FunCall while: "+current_token.value);
 
-			TreeNode to_add = parseExpression();
-			t.next_nodes.add(to_add);
+			t.next_nodes.add(parseExpression());
 			getNextToken(); 	// should be , or nothing
 			if (debug)
 				System.out.println("FunCall while ,: "+current_token.value);
@@ -1035,9 +1042,9 @@ public class Parser implements Constants {
 			case COMP_EXPRESSION:
 				TreeNodeCompExpression ce = (TreeNodeCompExpression) t;
 				if (ce.op != null) {
-					System.out.println(spaces+"Comp Expression Node at line "+ce.line+" has E1 {");
+					System.out.println(spaces+"Comp Expression Node at line "+ce.line+" has left child {");
 					printTree(ce.e1, spaces);
-					System.out.println(spaces+"} operator "+ce.op.value+" and E2 {");
+					System.out.println(spaces+"} operator "+ce.op.value+" and right child {");
 					printTree(ce.e2, spaces);
 					System.out.println(spaces+"}");
 				} else if (ce.e1.node_type == ET_EXPRESSION) {
@@ -1053,9 +1060,9 @@ public class Parser implements Constants {
 					printTree(ee.e2, spaces);
 					System.out.println(spaces+"}");
 				} else {
-					System.out.println(spaces+"ET Expression Node at line "+ee.line+" has E1 or T1 {");
+					System.out.println(spaces+"ET Expression Node at line "+ee.line+" has left child {");
 					printTree(ee.e1, spaces);
-					System.out.println(spaces+"} operator "+ee.op.value+" and E2 or T2 {");
+					System.out.println(spaces+"} operator "+ee.op.value+" and right child {");
 					printTree(ee.e2, spaces);
 					System.out.println(spaces+"}");
 				}
