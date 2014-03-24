@@ -10,6 +10,7 @@ public interface Constants {
 	static final int WHILE_STATEMENT = 16;
 	static final int RETURN_STATEMENT = 17;
 	static final int WRITE_STATEMENT = 18;
+	static final int WRITELN_STATEMENT = 188;
 	static final int EXPRESSION = 19;
 	static final int VAR = 20;
 	static final int COMP_EXPRESSION = 50;
@@ -17,11 +18,16 @@ public interface Constants {
 	static final int OP = 75;
 	static final int FUN_CALL = 76;
 	static final int ARGS = 77;
+	static final int PARAM = 78;
+	static final int PARAM_LIST = 79;
 	static final int EXPRESSION_INT = 100;
 	static final int EXPRESSION_VAR = 101;
 	static final int EXPRESSION_STRING = 102;
 	static final int EXPRESSION_RELOP = 103;
 	static final int EXPRESSION_FACTOR = 104;
+	static final int VAR_DEC = 200;
+	static final int FUN_DEC = 201;
+	static final int IGNORE = 500;
 	
 	// TOKEN CONSTANTS
 	static final int T_ID = 1;	// identifiers - start with a letter and consist of letters, digits, and underscores
