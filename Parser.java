@@ -1,6 +1,3 @@
-// TODO: Vardec node printing simple var
-// TODO: If else statement without brackets not working
-
 public class Parser implements Constants {
 
 	Scan my_scanner;
@@ -461,8 +458,6 @@ public class Parser implements Constants {
 
 		TreeNode t = null;
 		if (current_token.kind == T_LBRACE) {	// Compound_Statement
-
-			// TODO: removed a gNT from here: comment was to advance to read in exp_stmt, do I need it?
 			
 			t = parseCompoundStatement();
 			if (expect(current_token, T_RBRACE, "Not a valid CompoundStatement: Missing '}'")) {
@@ -521,8 +516,6 @@ public class Parser implements Constants {
 
 			}
 			
-			//TODO: dealing with <id>[] a way to pushback the id token instead of [
-
 			TreeNode e = parseStatement();
 			t.statement.add(e);
 			getNextToken();
@@ -1005,6 +998,14 @@ public class Parser implements Constants {
 
 		int[] k = new int[] {T_NUM, T_STRLIT, T_ID, T_READ}; 
 		if (expect(current_token, k, "Not a valid factor: needs to be <num>, <strlit>, or <id>")) {
+			if (current_token.kind == T_NUM) {
+				f.type = "int";
+				return f;
+			} else if (current_token.kind == T_STRLIT) {
+				f.type = "string";
+				return f;
+			}
+			
 			if (current_token.kind == T_ID) { 	// parses <id>[Expression]
 				getNextToken(); 	// should be [
 				if (debug)

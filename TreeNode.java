@@ -11,6 +11,8 @@ public class TreeNode implements Constants {
 	protected boolean is_address;
 	protected boolean is_array;
 	protected String array_size;
+	protected TreeNode declaration;
+	protected String type;
 	
 	public TreeNode(Token t, int nt) {
 		line = t.line;

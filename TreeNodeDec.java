@@ -1,7 +1,7 @@
 
 public class TreeNodeDec extends TreeNode {
 
-	protected String type;
+	//protected String type;
 	protected String name;
 	protected boolean is_pointer;
 	protected boolean is_array;

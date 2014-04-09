@@ -2,6 +2,11 @@ import java.util.HashMap;
 
 public interface Constants {
 	
+	// TYPE CHECKER CONSTANTS
+	static final int INT = 1;
+	static final int STRING = 2;
+	static final int VOID = 3;
+	
 	// TREENODE CONSTANTS
 	static final int PROGRAM = 1;
 	static final int COMPOUND_STATEMENT = 10;
