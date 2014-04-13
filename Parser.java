@@ -1,8 +1,11 @@
+import java.util.HashMap;
+
 public class Parser implements Constants {
 
 	Scan my_scanner;
 	Token current_token;
 	Token pushback_token;
+	HashMap<String, Integer> hm_strings;
 	boolean debug = false;
 	boolean enter = false;
 
@@ -11,6 +14,7 @@ public class Parser implements Constants {
 	 */
 	public Parser(String filename){
 		pushback_token = null;
+		hm_strings = new HashMap<String, Integer>();
 		try {
 			my_scanner = new Scan(filename);
 		} catch (Exception e) {
@@ -1003,6 +1007,7 @@ public class Parser implements Constants {
 				return f;
 			} else if (current_token.kind == T_STRLIT) {
 				f.type = "string";
+				hm_strings.put(f.value, 0);
 				return f;
 			}
 			

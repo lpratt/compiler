@@ -1,11 +1,12 @@
-import java.util.Hashtable;
+import java.util.HashMap;
 import java.util.ArrayList;
 
 public class TypeChecker implements Constants {
 
 	Parser my_parser;
 	TreeNode parse_tree;
-	ArrayList<Hashtable<String, TreeNode>> ht_stack;
+	ArrayList<HashMap<String, TreeNode>> hm_stack;
+	HashMap<String, TreeNode> hm_global;
 
 	TreeNode last_added_function;
 	boolean debug = true;
@@ -15,7 +16,8 @@ public class TypeChecker implements Constants {
 		try {
 			my_parser = new Parser(filename);
 			parse_tree = my_parser.parse();
-			ht_stack = new ArrayList<Hashtable<String, TreeNode>>();
+			hm_stack = new ArrayList<HashMap<String, TreeNode>>();
+			hm_global = new HashMap<String, TreeNode>();
 		} catch (Exception e) {
 		}
 	}
@@ -28,9 +30,9 @@ public class TypeChecker implements Constants {
 	public TreeNode setLink(String key) throws TypeCheckerException {
 		//System.out.println("SETTING STRING LINK: "+key);
 		TreeNode dec;
-		for (int i = 0; i < ht_stack.size(); i++) {
-			if (ht_stack.get(i).get(key) != null) {
-				dec = ht_stack.get(i).get(key);
+		for (int i = 0; i < hm_stack.size(); i++) {
+			if (hm_stack.get(i).get(key) != null) {
+				dec = hm_stack.get(i).get(key);
 				if (debug)
 					System.out.println(key+" linked to "+dec.value+" on line "+dec.line);
 				return dec;
@@ -60,9 +62,9 @@ public class TypeChecker implements Constants {
 				key_string = "-"+key.value;
 			}
 		} finally {
-			for (int i = 0; i < ht_stack.size(); i++) {
-				if (ht_stack.get(i).get(key_string) != null) {
-					key.declaration = ht_stack.get(i).get(key_string);
+			for (int i = 0; i < hm_stack.size(); i++) {
+				if (hm_stack.get(i).get(key_string) != null) {
+					key.declaration = hm_stack.get(i).get(key_string);
 					if (debug)
 						System.out.println("Setting link from "+key_string+" on line "+key.line+" to "+key_string+" on line "+key.declaration.line);
 					return key;
@@ -94,8 +96,8 @@ public class TypeChecker implements Constants {
 			}
 		} finally {
 
-			if (ht_stack.get(index).get(key_string) != null) {
-				key.declaration = ht_stack.get(index).get(key_string);
+			if (hm_stack.get(index).get(key_string) != null) {
+				key.declaration = hm_stack.get(index).get(key_string);
 				if (debug)
 					System.out.println("Setting link from "+key_string+" on line "+key.line+" to "+key_string+" on line "+key.declaration.line);
 				return key;
@@ -123,11 +125,11 @@ public class TypeChecker implements Constants {
 			System.out.println("EXCEPTION IN INPUT");
 		}
 		if (key_string != null)
-			ht_stack.get(0).put(key_string, key);
+			hm_stack.get(0).put(key_string, key);
 
 		if (debug) {
 			if (key_string != null)
-				System.out.println("Making link: "+key_string+" to "+key_string+" with ht of size "+ht_stack.get(0).size()+" and stack of size "+ht_stack.size());
+				System.out.println("Making link: "+key_string+" to "+key_string+" with ht of size "+hm_stack.get(0).size()+" and stack of size "+hm_stack.size());
 		}
 	}
 
@@ -206,7 +208,7 @@ public class TypeChecker implements Constants {
 			} else {
 				//				System.out.println(ee.e1.declaration.type+" "+ee.e2.type);
 				String eet = ee.e1.type;
-				if (eet.equals(ee.e2.type)) {
+				if (eet.equals("int") && eet.equals(ee.e2.type)) {
 					return eet;
 				} else {
 					return "false";
@@ -264,18 +266,19 @@ public class TypeChecker implements Constants {
 	public TreeNode traverseTree(TreeNode t) throws TypeCheckerException {
 		switch (t.node_type) {
 		case PROGRAM:
-			Hashtable<String, TreeNode> ht = new Hashtable<String, TreeNode>(); 	// create new hashtable
-			ht_stack.add(0, ht); 	// and put it on the stack
+			HashMap<String, TreeNode> ht = new HashMap<String, TreeNode>(); 	// create new hashtable
+			hm_stack.add(0, ht); 	// and put it on the stack
 			for (int i = 0; i < t.next_nodes.size(); i++) {
 				t.next_nodes.set(i, traverseTree(t.next_nodes.get(i))); 	// recurse on next_nodes
 
 			}
-			ht_stack.remove(0); 	// remove ht from stack
-			ht_stack.trimToSize(); 	// for testing purposes
+			hm_global = hm_stack.get(0);
+			hm_stack.remove(0); 	// remove ht from stack
+			hm_stack.trimToSize(); 	// for testing purposes
 			return t;
 		case COMPOUND_STATEMENT:
-			Hashtable<String, TreeNode> csht = new Hashtable<String, TreeNode>(); 	// create new hashtable
-			ht_stack.add(0, csht); 	// and put it on the stack
+			HashMap<String, TreeNode> csht = new HashMap<String, TreeNode>(); 	// create new hashtable
+			hm_stack.add(0, csht); 	// and put it on the stack
 			TreeNodeCompStatement comps = (TreeNodeCompStatement) t;
 			for (int i = 0; i < comps.declaration.size(); i++) {
 				comps.declaration.set(i, traverseTree(comps.declaration.get(i)));
@@ -283,8 +286,8 @@ public class TypeChecker implements Constants {
 			for (int i = 0; i < comps.statement.size(); i++) {
 				comps.statement.set(i, traverseTree(comps.statement.get(i)));
 			}
-			ht_stack.remove(0); 	// remove csht from stack
-			ht_stack.trimToSize(); 	// for testing purposes
+			hm_stack.remove(0); 	// remove csht from stack
+			hm_stack.trimToSize(); 	// for testing purposes
 			return t;
 		case EXPRESSION_STATEMENT:
 			TreeNodeStatement es = (TreeNodeStatement) t;
@@ -463,7 +466,7 @@ public class TypeChecker implements Constants {
 			}
 			return t;
 		case FUN_CALL:
-			t = setLink(t, ht_stack.size()-1); 	// set the declaration field
+			t = setLink(t, hm_stack.size()-1); 	// set the declaration field
 			if (check)
 				System.out.println("Setting check: line "+t.line+" to line "+t.declaration.line);
 
@@ -484,15 +487,15 @@ public class TypeChecker implements Constants {
 		case FUN_DEC:
 			inputLink(t); 	// add link to top of stack hashtable (should be program ht)
 			last_added_function = t;
-			Hashtable<String, TreeNode> fdht = new Hashtable<String, TreeNode>(); 	// create new hashtable
-			ht_stack.add(0, fdht); 	// and put it on the stack
+			HashMap<String, TreeNode> fdht = new HashMap<String, TreeNode>(); 	// create new hashtable
+			hm_stack.add(0, fdht); 	// and put it on the stack
 			TreeNodeDec fd = (TreeNodeDec) t;
 			if (fd.params != null)
 				fd.params = traverseTree(fd.params); 	// recurse on params
 			if (fd.comp_statement != null)
 				fd.comp_statement = traverseTree(fd.comp_statement); 	// recurse on comp_statement
-			ht_stack.remove(0); 	// remove fdht from stack
-			ht_stack.trimToSize(); 	// for testing purposes
+			hm_stack.remove(0); 	// remove fdht from stack
+			hm_stack.trimToSize(); 	// for testing purposes
 			return t;
 		case PARAM_LIST:
 			for (int i = 0; i < t.next_nodes.size(); i++) {
@@ -508,7 +511,6 @@ public class TypeChecker implements Constants {
 
 	public void print() throws TypeCheckerException {
 		parse_tree = traverseTree(parse_tree);
-		// TODO: print out tree like in parser, but with declarations and types?
 	}
 
 	public static void main(String[] args) throws TypeCheckerException {
